@@ -3,7 +3,7 @@ upstream:
   type: "standalone"
   repo: https://github.com/chipsalliance/Cores-VeeR-EL2
   branch: main
-  commit: ab93a36eb4fd7825845f92da797761dbfef29320
+  commit: aff3d961f498ef0dc0c4168b7bac716fad02cd3b
 import:
   rtl:
     - path: "design"
@@ -15,5 +15,4 @@ import:
 license:
   spdx: Apache-2.0
   file: LICENSE
-
 metadata_locked: true
