@@ -3,7 +3,7 @@ upstream:
   type: "standalone"
   repo: https://github.com/chipsalliance/Cores-VeeR-EL2
   branch: main
-  commit: 895a9d64839ba610d27f35f552d524ba95ee3b07
+  commit: 965de93fd7a32ea7bf1ff3fa8a4d8a71d0667e50
 import:
   rtl:
     - path: "design"
