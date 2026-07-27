@@ -55,6 +55,7 @@ import el2_pkg::*;
    output logic                 dccm_clk_override,
    output logic                 icm_clk_override,
    output logic                 dec_tlu_core_ecc_disable,
+   output logic                 dec_tlu_dccm_wr_readback_disable,
 
    // external halt/run interface
    input logic  i_cpu_halt_req,    // Asynchronous Halt request to CPU
@@ -103,7 +104,6 @@ import el2_pkg::*;
    output logic                  iccm_buf_correct_ecc,
    output logic                  iccm_correction_state,
 
-   input  logic [63:0]          iccm_rd_data,
    input  logic [77:0]           iccm_rd_data_ecc,
 
    // ICache , ITAG  ports
@@ -119,9 +119,6 @@ import el2_pkg::*;
    input  logic [70:0]               ic_debug_rd_data ,        // Data read from Icache. 2x64bits + parity bits. F2 stage. With ECC
    input  logic [25:0]               ictag_debug_rd_data,// Debug icache tag.
    output logic [70:0]               ic_debug_wr_data,   // Debug wr cache.
-
-   output logic [63:0]               ic_premux_data,     // Premux data to be muxed with each way of the Icache.
-   output logic                      ic_sel_premux_data, // Select premux data
 
 
    output logic [pt.ICACHE_INDEX_HI:3]               ic_debug_addr,      // Read/Write address to the Icache.
@@ -454,6 +451,7 @@ import el2_pkg::*;
    output logic                 iccm_ecc_double_error,
    output logic                 dccm_ecc_single_error,
    output logic                 dccm_ecc_double_error,
+   output logic                 dccm_write_readback_error,
 
 `ifdef RV_LOCKSTEP_REGFILE_ENABLE
    // Register file
@@ -477,13 +475,18 @@ import el2_pkg::*;
    //
    //----------------------------------------------------------------------
 
-   logic                         ifu_pmu_instr_aligned;
-   logic                         ifu_ic_error_start;
-   logic                         ifu_iccm_dma_rd_ecc_single_err;
-   logic                         ifu_iccm_rd_ecc_single_err;
-   logic                         ifu_iccm_rd_ecc_double_err;
-   logic                         lsu_dccm_rd_ecc_single_err;
-   logic                         lsu_dccm_rd_ecc_double_err;
+   logic                           ifu_pmu_instr_aligned;
+   logic                           ifu_ic_error_start;
+   logic                           ifu_iccm_dma_rd_ecc_single_err;
+   logic                           ifu_iccm_rd_ecc_single_err;
+   logic                           ifu_iccm_rd_ecc_double_err;
+   logic                           lsu_dccm_rd_ecc_single_err;
+   logic                           lsu_dccm_rd_ecc_double_err;
+   logic                           dccm_wr_readback_error;
+   logic                           dccm_wr_rdbk_fault_valid;
+   logic [pt.DCCM_BITS-1:0]        dccm_wr_rdbk_fault_addr;
+   logic [pt.DCCM_FDATA_WIDTH-1:0] dccm_wr_rdbk_fault_data;
+   logic                           dccm_wr_rdbk_fault_clear;
 
    logic                         lsu_axi_awready_ahb;
    logic                         lsu_axi_wready_ahb;
@@ -1052,6 +1055,7 @@ import el2_pkg::*;
 
    assign dccm_ecc_single_error = lsu_dccm_rd_ecc_single_err;
    assign dccm_ecc_double_error = lsu_dccm_rd_ecc_double_err;
+   assign dccm_write_readback_error = dccm_wr_readback_error;
 
    el2_pic_ctrl  #(.pt(pt)) pic_ctrl_inst (
                                             .clk(free_l2clk),

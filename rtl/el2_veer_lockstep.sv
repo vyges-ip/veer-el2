@@ -35,6 +35,7 @@ module el2_veer_lockstep
     input logic dccm_clk_override,
     input logic icm_clk_override,
     input logic dec_tlu_core_ecc_disable,
+    input logic dec_tlu_dccm_wr_readback_disable,
 
     // external halt/run interface
     input logic i_cpu_halt_req,  // Asynchronous Halt request to CPU
@@ -81,7 +82,6 @@ module el2_veer_lockstep
     input logic                    iccm_buf_correct_ecc,
     input logic                    iccm_correction_state,
 
-    input logic [63:0] iccm_rd_data,
     input logic [77:0] iccm_rd_data_ecc,
 
     // ICache , ITAG  ports
@@ -97,9 +97,6 @@ module el2_veer_lockstep
     input  logic [70:0]               ic_debug_rd_data ,        // Data read from Icache. 2x64bits + parity bits. F2 stage. With ECC
     input logic [25:0] ictag_debug_rd_data,  // Debug icache tag.
     input logic [70:0] ic_debug_wr_data,  // Debug wr cache.
-
-    input logic [63:0] ic_premux_data,  // Premux data to be muxed with each way of the Icache.
-    input logic ic_sel_premux_data,  // Select premux data
 
 
     input logic [  pt.ICACHE_INDEX_HI:3] ic_debug_addr,       // Read/Write address to the Icache.
@@ -367,6 +364,7 @@ module el2_veer_lockstep
     input logic iccm_ecc_double_error,
     input logic dccm_ecc_single_error,
     input logic dccm_ecc_double_error,
+    input logic dccm_write_readback_error,
 
     input logic [pt.PIC_TOTAL_INT:1] extintsrc_req,
     input logic                      timer_int,
@@ -487,7 +485,6 @@ module el2_veer_lockstep
   assign main_core_inputs.mpc_reset_run_req = mpc_reset_run_req;
   assign main_core_inputs.dccm_rd_data_lo = dccm_rd_data_lo;
   assign main_core_inputs.dccm_rd_data_hi = dccm_rd_data_hi;
-  assign main_core_inputs.iccm_rd_data = iccm_rd_data;
   assign main_core_inputs.iccm_rd_data_ecc = iccm_rd_data_ecc;
   assign main_core_inputs.ic_rd_data = ic_rd_data;
   assign main_core_inputs.ic_rd_addr_lo = ic_rd_addr_lo;
@@ -593,6 +590,7 @@ module el2_veer_lockstep
   assign main_core_outputs.dccm_clk_override = dccm_clk_override;
   assign main_core_outputs.icm_clk_override = icm_clk_override;
   assign main_core_outputs.dec_tlu_core_ecc_disable = dec_tlu_core_ecc_disable;
+  assign main_core_outputs.dec_tlu_dccm_wr_readback_disable = dec_tlu_dccm_wr_readback_disable;
   assign main_core_outputs.o_cpu_halt_ack = o_cpu_halt_ack;
   assign main_core_outputs.o_cpu_halt_status = o_cpu_halt_status;
   assign main_core_outputs.o_cpu_run_ack = o_cpu_run_ack;
@@ -625,8 +623,6 @@ module el2_veer_lockstep
   assign main_core_outputs.ic_rd_en = ic_rd_en;
   assign main_core_outputs.ic_wr_data = ic_wr_data;
   assign main_core_outputs.ic_debug_wr_data = ic_debug_wr_data;
-  assign main_core_outputs.ic_premux_data = ic_premux_data;
-  assign main_core_outputs.ic_sel_premux_data = ic_sel_premux_data;
   assign main_core_outputs.ic_debug_addr = ic_debug_addr;
   assign main_core_outputs.ic_debug_rd_en = ic_debug_rd_en;
   assign main_core_outputs.ic_debug_wr_en = ic_debug_wr_en;
@@ -758,24 +754,25 @@ module el2_veer_lockstep
   assign main_core_outputs.iccm_ecc_double_error = iccm_ecc_double_error;
   assign main_core_outputs.dccm_ecc_single_error = dccm_ecc_single_error;
   assign main_core_outputs.dccm_ecc_double_error = dccm_ecc_double_error;
+  assign main_core_outputs.dccm_write_readback_error = dccm_write_readback_error;
 
   // Latch the debug state
-  logic debug_mode_status_latch;
+  el2_mubi_t debug_mode_status_latch;
   el2_mubi_t dbg_detected;
 
   always_ff @(posedge clk or negedge rst_l) begin
     if (~rst_l) begin
-      debug_mode_status_latch <= 1'b0;
+      debug_mode_status_latch <= El2MuBiFalse;
     end else begin
       if (o_debug_mode_status) begin
-        debug_mode_status_latch <= 1'b1;
+        debug_mode_status_latch <= El2MuBiTrue;
       end else begin
         debug_mode_status_latch <= debug_mode_status_latch;
       end
     end
   end
 
-  assign dbg_detected = mubi_from_bool(debug_mode_status_latch);
+  assign dbg_detected = debug_mode_status_latch;
 
 `ifdef RV_LOCKSTEP_REGFILE_ENABLE
 `endif
@@ -844,6 +841,7 @@ module el2_veer_lockstep
       .dccm_clk_override(shadow_core_outputs.dccm_clk_override),
       .icm_clk_override(shadow_core_outputs.icm_clk_override),
       .dec_tlu_core_ecc_disable(shadow_core_outputs.dec_tlu_core_ecc_disable),
+      .dec_tlu_dccm_wr_readback_disable(shadow_core_outputs.dec_tlu_dccm_wr_readback_disable),
 
       .i_cpu_halt_req(shadow_core_inputs.i_cpu_halt_req),
       .i_cpu_run_req(shadow_core_inputs.i_cpu_run_req),
@@ -884,7 +882,6 @@ module el2_veer_lockstep
       .iccm_wr_data(shadow_core_outputs.iccm_wr_data),
       .iccm_buf_correct_ecc(shadow_core_outputs.iccm_buf_correct_ecc),
       .iccm_correction_state(shadow_core_outputs.iccm_correction_state),
-      .iccm_rd_data(shadow_core_inputs.iccm_rd_data),
       .iccm_rd_data_ecc(shadow_core_inputs.iccm_rd_data_ecc),
 
       .ic_rw_addr(shadow_core_outputs.ic_rw_addr),
@@ -899,9 +896,6 @@ module el2_veer_lockstep
       .ic_debug_rd_data(shadow_core_inputs.ic_debug_rd_data),
       .ictag_debug_rd_data(shadow_core_inputs.ictag_debug_rd_data),
       .ic_debug_wr_data(shadow_core_outputs.ic_debug_wr_data),
-
-      .ic_premux_data(shadow_core_outputs.ic_premux_data),
-      .ic_sel_premux_data(shadow_core_outputs.ic_sel_premux_data),
 
       .ic_debug_addr(shadow_core_outputs.ic_debug_addr),
       .ic_debug_rd_en(shadow_core_outputs.ic_debug_rd_en),
@@ -1128,6 +1122,7 @@ module el2_veer_lockstep
       .iccm_ecc_double_error(shadow_core_outputs.iccm_ecc_double_error),
       .dccm_ecc_single_error(shadow_core_outputs.dccm_ecc_single_error),
       .dccm_ecc_double_error(shadow_core_outputs.dccm_ecc_double_error),
+      .dccm_write_readback_error(shadow_core_outputs.dccm_write_readback_error),
 
       .extintsrc_req(shadow_core_inputs.extintsrc_req),
       .timer_int(shadow_core_inputs.timer_int),
